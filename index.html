@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ЕГЭ Физика 2026: Интерактивная Академия и Тренажер</title>
+    <!-- Подключаем Telegram Web App SDK для интеграции с мессенджером -->
+    <script src="https://telegram.org"></script>
+    <style>
+        :root {
+            --bg-color: #080c14;
+            --panel-bg: #111827;
+            --panel-light: #1f2937;
+            --accent-color: #2563eb;
+            --accent-glow: #3b82f6;
+            --accent-purple: #9333ea;
+            --accent-gold: #eab308;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --success: #10b981;
+            --danger: #ef4444;
+            --border: #374151;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 360px;
+            background-color: #0f172a;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            font-size: 1.15rem;
+            font-weight: 800;
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+            color: var(--accent-glow);
+            letter-spacing: 0.5px;
+        }
+
+        .mode-selector {
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            border: 1px solid var(--border);
+            background-color: var(--panel-bg);
+            color: var(--text-main);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            background-color: var(--accent-color);
+            border-color: var(--accent-glow);
+        }
+
+        .task-list {
+            list-style: none;
+            overflow-y: auto;
+            flex-grow: 1;
+            padding: 10px 0;
+        }
+
+        .task-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            margin: 4px 12px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            font-size: 0.88rem;
+            transition: all 0.2s;
+        }
+
+        .task-item:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+
+        .task-item.active {
+            background: linear-gradient(135deg, #1d4ed8, #2563eb);
+            border-color: var(--accent-glow);
+        }
+
+        .task-item-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .task-item-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .task-item.active .task-item-meta {
+            color: #bfdbfe;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background-image: radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.08) 0px, transparent 50%);
+        }
+
+        .tabs {
+            display: flex;
+            background-color: #0f172a;
+            border-bottom: 1px solid var(--border);
+            padding: 0 15px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 16px 24px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            position: relative;
+            white-space: nowrap;
+        }
+
+        .tab-btn.active {
+            color: var(--accent-glow);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: var(--accent-glow);
+        }
+
+        .tab-content {
+            flex-grow: 1;
+            padding: 25px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .formula-card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px;
+            margin-bottom: 20px;
+        }
+
+        .formula-card-title {
+            color: var(--accent-glow);
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .formula-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 10px;
+        }
+
+        .formula-block {
+            background-color: var(--panel-light);
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #4b5563;
+            text-align: center;
+        }
+
+        .formula-math {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            font-style: italic;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .formula-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .workspace-layout {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 20px;
+        }
+
+        .task-container {
+            background-color: var(--panel-bg);
+            border-radius: 10px;
+            padding: 25px;
+            border: 1px solid var(--border);
+        }
+
+        .task-meta-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        .task-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .input-section {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .answer-input {
+            flex-grow: 1;
+            padding: 12px 16px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background-color: var(--bg-color);
+            color: #fff;
+            font-size: 1.1rem;
+        }
+
+        .submit-btn {
+            padding: 12px 28px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .feedback {
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            display: none;
+            margin-top: 10px;
+        }
+
+        .mentor-widget {
+            background-color: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            height: 400px;
+            overflow: hidden;
+        }
+
+        .mentor-header {
+            background: linear-gradient(135deg, #7e22ce, #5b21b6);
+            padding: 12px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chat-history {
+            flex-grow: 1;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background-color: var(--bg-color);
+        }
+
+        .chat-bubble {
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            max-width: 90%;
+        }
+
+        .bubble-bot {
+            background-color: var(--panel-bg);
+            border-left: 3px solid var(--accent-purple);
+            align-self: flex-start;
+        }
+
+        .bubble-user {
+            background-color: var(--accent-color);
+            align-self: flex-end;
+        }
+
+        .mentor-actions {
+            padding: 8px;
+            background-color: #0f172a;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .mentor-btn {
+            padding: 6px;
+            background-color: var(--panel-light);
+            color: #c084fc;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .academy-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 25px;
+        }
+
+        .academy-menu {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .academy-menu-header {
+            padding: 15px;
+            background-color: var(--panel-light);
+            font-weight: bold;
+            border-bottom: 1px solid var(--border);
+            color: var(--accent-glow);
+        }
+
+        .academy-menu-list {
+            list-style: none;
+            overflow-y: auto;
+            max-height: 500px;
+        }
+
+        .academy-menu-item {
